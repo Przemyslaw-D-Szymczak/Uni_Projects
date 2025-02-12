@@ -1,0 +1,546 @@
+---
+title: "Projekt z Metody Reprezentacyjnej"
+author: "Przemysław Szymczak"
+date: "`r Sys.Date()`"
+output: pdf_document
+lang: "pl"
+number_sections: true
+font: monofont
+fontsize: 12pt
+header-includes:
+  - \usepackage{float}
+---
+
+```{r message = FALSE, echo = FALSE}
+sciezka = "C:\\Users\\User\\Desktop\\Projekt_MR"
+setwd(sciezka)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(stats)
+
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "")
+dane = read.csv("zbior_A.csv", sep = ";", encoding = "UTF-8")
+ziarno = 387285
+
+zaokr = function(h) round(h, 2)
+```
+
+# 1. Populacja
+## 1.1. Charakterystyka ogólna
+
+Celem projektu jest oszacowanie średniego dochodu w populacji, wykorzystując losowanie proste zależne (bez zwracania) i warstwowe oraz porównanie ich wyników i wybór najlepszego.
+  
+Wykorzystany został do tego zbiór danych dotyczący dochodu w pewnej populacji 20 tys. osób. Poza tą cechą obserwacje opisane zostały także takimi cechami jakościowymi jak: wykształcenie, grupa wiekowa, doświadczenie, rodzaj umowy oraz wiek. W celu charakterystyki tej populacji wykorzystane zostały statystki opisowe oraz metody graficzne.
+
+```{r message = FALSE, echo = FALSE}
+####Statystyka opisowa i wykresy####
+#prezentacja danych
+populacja = dane[,1]
+
+stat = data.frame("Wartość" = as.factor(zaokr(summary(populacja))))
+kable(stat, caption = "Statystyki opisowe populacji")
+
+sr_pop = zaokr(mean(populacja))
+war_pop = zaokr(var(populacja))
+macierz = matrix(1:3, ncol = 3)
+```
+
+Średnie wynagrodzenie w populacji wyniosło 3596,90 z kolei mediana 3646,18. Najniższe wynagrodzenie wynosiło 81.76 zaś najwyższe 8873.62, co za tym idzie rozstęp to 8791,86. Pierwszy kwartyl wyniósł 2352,70, 25% obserwacji przyjeło wartości niższe niż ta, zaś 75% wyższe. Z kolei trzeci wartyl wyniósł 4672,27, 75% obserwacji przyjeło wartości niższe niż ta, zaś 25% wyższe.
+
+```{r message = FALSE, echo = FALSE, fig.cap= "Histogram dochodu w populacji"}
+ggplot(dane, aes(x = dochod)) + geom_histogram()
+```
+
+```{r message = FALSE, echo = FALSE}
+ks_wynik = ks.test(unique(populacja), rnorm)
+ks = zaokr(as.numeric(ks_wynik[["statistic"]]))
+p_value = zaokr(as.numeric(ks_wynik[["p.value"]]))
+```
+
+O populacji dużo dowiedzieć można się również z histogramu, który nie przypomina rozkładu normalnego, gdyż posiada dwa "szczyty", jeden to grupy obserwacji z dochodem ok. 2000, z kolei drugi z dochodem ok. 4000. 
+
+Brak normalności potwierdza także test Kołmogorowa-Smirnowa ($H_0:$ Cecha  ma rozkład normalny, $H_1:$ Cecha nie ma rozkładu normalnego), statystyka wyniosła $D = `r ks`$, zaś wartość p $= `r p_value`$, zatem należy odrzucić hipotezę zerową na rzecz alternatywnej.
+
+```{r message = FALSE, echo = FALSE, fig.cap= "Wykres pudełkowy dochodu w populacji"}
+ggplot(dane, aes(y = dochod)) + geom_boxplot()
+```
+
+Wykres pudełkowy jest graficznym odpowiednikiem wcześniej opisanych statystyk opisowych. Zaznaczone na nim zostały kwartyle oraz wartości minimalne i maksymalne. Dodatkowo zauważyć na nim można, że wystąpiło kilka skrajnych obserwacji o wysokich wartościach dochodu.
+
+## 1.2. Charakterystyki w grupach
+
+Kolejnym krokiem było sprawdzenie, która ze zmiennych jakościowych będzie najlepiej nadawać się do warstwowania. Powinna to być taka zmienna, która utworzy warstwy jednocześnie jednorodne wewnętrznie i niejednorodne między sobą. W tym celu opracowane zostały wykresy pudełkowe dochodów w podziale na warianty przyjmowane przez zmienne.
+
+```{r message = FALSE, echo = FALSE, fig.cap="Wykresy pudełkowe dochodu w warstwach według wykształcenia", fig.height= 3}
+bp_wyksztalcenie = lapply(c("wyższe", "średnie", "zawodowe"), 
+  function(h) ggplot(dane[which(dane$wyksztalcenie == h),], aes(y = dochod)) + geom_boxplot() + labs(title = h))
+marrangeGrob(bp_wyksztalcenie, layout_matrix = macierz, top = NULL)
+```
+
+```{r message = FALSE, echo = FALSE, fig.cap="Wykresy pudełkowe dochodu w warstwach według wieku", fig.height= 3}
+bp_wiek = lapply(unique(dane[,3]), 
+  function(h) ggplot(dane[which(dane$wiek == h),], aes(y = dochod)) + geom_boxplot() + labs(title = h))
+marrangeGrob(bp_wiek, layout_matrix = macierz, top = NULL)
+```
+
+```{r message = FALSE, echo = FALSE, fig.cap="Wykresy pudełkowe dochodu w warstwach według doświadczenia", fig.height= 3}
+bp_dosw = lapply(unique(dane[,4]), 
+  function(h) ggplot(dane[which(dane$doswiadczenie == h),], aes(y = dochod)) + geom_boxplot() + labs(title = h))
+marrangeGrob(bp_dosw, layout_matrix = macierz, top = NULL)
+```
+
+```{r message = FALSE, echo = FALSE, fig.cap="Wykresy pudełkowe dochodu w warstwach według zatrudnienia", fig.height= 3}
+bp_umowa = lapply(unique(dane[,5]), 
+  function(h) ggplot(dane[which(dane$forma_zatrudnienia== h),], aes(y = dochod)) + geom_boxplot() + labs(title = h))
+marrangeGrob(bp_umowa, layout_matrix = macierz, top = NULL)
+```
+
+```{r message = FALSE, echo = FALSE, fig.cap="Wykresy pudełkowe dochodu w warstwach według płci", fig.height= 3}
+bp_plec = lapply(unique(dane[,6]), 
+  function(h) ggplot(dane[which(dane$plec== h),], aes(y = dochod)) + geom_boxplot() + labs(title = h))
+marrangeGrob(bp_plec, layout_matrix = matrix(1:2, ncol = 2), top = NULL)
+```
+
+Okazało się, że najgorszymi zmiennymi do warstwowania były: wiek, gdyż grupy 25-45 i 50+ miały zbliżone statystyki opisowe oraz płeć z tego samego względu. Pozostałe zmienne, stosunkowo dobrze różnicowały dochód w warstwach, dlatego wykorzystane zostaną w losowaniu warstwowym. Losowanie warstwowe przeprowadzone zostanie zatem w trzech wariantach Wykształcenie to I, doświadczenie to II, natomiast forma zatrudnienia to III. Wykorzystane zostaną alokacja proporcjonalna i optymalna.
+
+# 2. Wyniki losowania
+## 2.1. Liczebność próby
+
+Liczebność próbek oparta została na mierze optymalnej wielkości próby, średni dochód wyznaczony został z dokładnością d = 150. W związku z tym liczebność prób wyniosła 89 obseracji. W przypadku liczebności w warstwach zostały one zaookrąglone tak, aby sumowały się do 89.
+
+```{r message = FALSE, echo = FALSE}
+####Proste bez zwracania (zależne)####
+N = nrow(dane)
+d = 150
+n = ceiling(N/(1+((N*d^2)/war_pop)))
+set.seed(ziarno)
+numery = sample(1:N, n, replace=F)
+
+proba = dane[numery,]
+
+sr_proste = zaokr(mean(proba[,1]))
+war_proste = zaokr((1-n/N)*(war_pop/n))
+blad_proste = zaokr(sqrt(war_proste)/sr_proste*100) #wzgledny blad szacunku
+
+
+####Warstwowe - warstwowanie po wykształceniu####
+warstwa1 = dane[which(dane$wyksztalcenie == "wyższe"),1] 
+warstwa2 = dane[which(dane$wyksztalcenie == "średnie"),1]
+warstwa3 = dane[which(dane$wyksztalcenie == "zawodowe"),1]
+
+N1 = length(warstwa1)
+N2 = length(warstwa2)
+N3 = length(warstwa3)
+
+W1 = N1/N
+W2 = N2/N
+W3 = N3/N
+
+
+
+#------------------------------Alokacja proporcjonalna-----------------------
+
+
+
+n1 = round(W1*n)
+n2 = round(W2*n)
+n3 = round(W3*n)
+
+set.seed(ziarno)
+wylosowane1 = floor(runif(n1,1,N1+1))
+wylosowane2 = floor(runif(n2,1,N2+1))
+wylosowane3 = floor(runif(n3,1,N3+1))
+
+proba1 = warstwa1[wylosowane1]
+proba2 = warstwa2[wylosowane2]
+proba3 = warstwa3[wylosowane3]
+
+#srednie w warstwach
+sr1 = zaokr(mean(unlist(proba1)))
+sr2 = zaokr(mean(unlist(proba2)))
+sr3 = zaokr(mean(unlist(proba3)))
+
+#wariancje w warstwach
+var1 = zaokr(var(unlist(proba1)))
+var2 = zaokr(var(unlist(proba2)))
+var3 = zaokr(var(unlist(proba3)))
+
+#estymacja sredniej
+sr_warstwowe = zaokr(sr1*W1+sr2*W2+sr3*W3)
+
+#estymator wariancji estymatora sredniej
+war_warstwowe = zaokr((W1^2)*(1-n1/N1)*var1/n1 +
+  (W2^2)*(1-n2/N2)*var2/n2 +
+  (W3^2)*(1-n3/N3)*var3/n3)
+
+#wzgledny blad szacunku
+blad_warstwowe = zaokr(sqrt(sr_warstwowe)/war_warstwowe*100)
+
+#wzgledny zysk na efektywnosci
+zysk_war_proste = zaokr((1-war_warstwowe/war_proste)*100)
+
+
+
+#----------------------------Alokacja optymalna-----------------------------------------
+
+
+
+
+var1_o = zaokr(var(warstwa1))
+var2_o = zaokr(var(warstwa2))
+var3_o = zaokr(var(warstwa3))
+
+suma = N1*var1_o + N2*var2_o + N3*var3_o
+
+n1_o = round(n*N1*var1_o/suma)
+n2_o = floor(n*N2*var2_o/suma)
+n3_o = round(n*N3*var3_o/suma)
+
+#losowanie prob
+set.seed(ziarno)
+wylosowane1_o = floor(runif(n1_o,1,N1+1))
+wylosowane2_o = floor(runif(n2_o,1,N2+1))
+wylosowane3_o = floor(runif(n3_o,1,N3+1))
+
+proba1_o = warstwa1[wylosowane1_o]
+proba2_o = warstwa2[wylosowane2_o]
+proba3_o = warstwa3[wylosowane3_o]
+
+#srednie w warstwach
+sr1_o = zaokr(mean(unlist(proba1_o)))
+sr2_o = zaokr(mean(unlist(proba2_o)))
+sr3_o = zaokr(mean(unlist(proba3_o)))
+
+#wariancje w warstwach
+var1_o_w = zaokr(var(unlist(proba1_o)))
+var2_o_w = zaokr(var(unlist(proba2_o)))
+var3_o_w = zaokr(var(unlist(proba3_o)))
+
+#estymacja sredniej
+sr_warstwowe_o = zaokr(sr1_o*W1+sr2_o*W2+sr3_o*W3)
+
+#estymator wariancji estymatora sredniej
+war_warstwowe_o = zaokr((W1^2)*(1-n1_o/N1)*var1_o_w/n1_o +
+  (W2^2)*(1-n2_o/N2)*var2_o_w/n2_o +
+  (W3^2)*(1-n3_o/N3)*var3_o_w/n3_o)
+
+#wzgledny blad szacunku
+blad_warstwowe_o = zaokr(sqrt(war_warstwowe_o)/sr_warstwowe_o*100)
+
+#wzgledny zysk na efektywnosci
+zysk_war_o_proste = zaokr((1-war_warstwowe_o/war_proste)*100)
+zysk_war_o_war = zaokr((1-war_warstwowe_o/war_warstwowe)*100)
+
+
+####Warstwowe - warstwowanie po doświadczeniu####
+warstwa1_b = dane[which(dane$doswiadczenie == "zaawansowany"),1] 
+warstwa2_b = dane[which(dane$doswiadczenie == "doświadczony"),1]
+warstwa3_b = dane[which(dane$doswiadczenie == "początkujący"),1]
+
+N1_b = length(warstwa1_b)
+N2_b = length(warstwa2_b)
+N3_b = length(warstwa3_b)
+
+W1_b = N1_b/N
+W2_b = N2_b/N
+W3_b = N3_b/N
+
+
+
+#------------------------------Alokacja proporcjonalna-----------------------
+
+
+
+n1_b = round(W1_b*n)
+n2_b = round(W2_b*n)
+n3_b = round(W3_b*n)
+
+set.seed(ziarno)
+wylosowane1_b = floor(runif(n1_b,1,N1_b+1))
+wylosowane2_b = floor(runif(n2_b,1,N2_b+1))
+wylosowane3_b = floor(runif(n3_b,1,N3_b+1))
+
+proba1_b = warstwa1_b[wylosowane1_b]
+proba2_b = warstwa2_b[wylosowane2_b]
+proba3_b = warstwa3_b[wylosowane3_b]
+
+#srednie w warstwach
+sr1_b = zaokr(mean(unlist(proba1_b)))
+sr2_b = zaokr(mean(unlist(proba2_b)))
+sr3_b = zaokr(mean(unlist(proba3_b)))
+
+#wariancje w warstwach
+var1_b = zaokr(var(unlist(proba1_b)))
+var2_b = zaokr(var(unlist(proba2_b)))
+var3_b = zaokr(var(unlist(proba3_b)))
+
+#estymacja sredniej
+sr_warstwowe_b = zaokr(sr1_b*W1_b+sr2_b*W2_b+sr3_b*W3_b)
+
+#estymator wariancji estymatora sredniej
+war_warstwowe_b = zaokr((W1_b^2)*(1-n1_b/N1_b)*var1_b/n1_b +
+                        (W2_b^2)*(1-n2_b/N2_b)*var2_b/n2_b +
+                        (W3_b^2)*(1-n3_b/N3_b)*var3_b/n3_b)
+
+#wzgledny blad szacunku
+blad_warstwowe_b = zaokr(sqrt(sr_warstwowe_b)/war_warstwowe_b*100)
+
+#wzgledny zysk na efektywnosci
+zysk_war_proste_b = zaokr((1-war_warstwowe_b/war_proste)*100)
+
+
+
+#----------------------------Alokacja optymalna-----------------------------------------
+
+
+
+
+var1_o_b = zaokr(var(warstwa1_b))
+var2_o_b = zaokr(var(warstwa2_b))
+var3_o_b = zaokr(var(warstwa3_b))
+
+suma_b = N1_b*var1_o_b + N2_b*var2_o_b + N3_b*var3_o_b
+
+n1_o_b = round(n*N1_b*var1_o_b/suma_b)
+n2_o_b = round(n*N2_b*var2_o_b/suma_b)
+n3_o_b = ceiling(n*N3_b*var3_o_b/suma_b)
+
+#losowanie prob
+set.seed(ziarno)
+wylosowane1_o_b = floor(runif(n1_o_b,1,N1_b+1))
+wylosowane2_o_b = floor(runif(n2_o_b,1,N2_b+1))
+wylosowane3_o_b = floor(runif(n3_o_b,1,N3_b+1))
+
+proba1_o_b = warstwa1_b[wylosowane1_o_b]
+proba2_o_b = warstwa2_b[wylosowane2_o_b]
+proba3_o_b = warstwa3_b[wylosowane3_o_b]
+
+#srednie w warstwach
+sr1_o_b = zaokr(mean(unlist(proba1_o_b)))
+sr2_o_b = zaokr(mean(unlist(proba2_o_b)))
+sr3_o_b = zaokr(mean(unlist(proba3_o_b)))
+
+#wariancje w warstwach
+var1_o_w_b = zaokr(var(unlist(proba1_o_b)))
+var2_o_w_b = zaokr(var(unlist(proba2_o_b)))
+var3_o_w_b = zaokr(var(unlist(proba3_o_b)))
+
+#estymacja sredniej
+sr_warstwowe_o_b = zaokr(sr1_o_b*W1_b+sr2_o_b*W2_b+sr3_o_b*W3_b)
+
+#estymator wariancji estymatora sredniej
+war_warstwowe_o_b = zaokr((W1_b^2)*(1-n1_o_b/N1_b)*var1_o_w_b/n1_o_b +
+                          (W2_b^2)*(1-n2_o_b/N2_b)*var2_o_w_b/n2_o_b +
+                          (W3_b^2)*(1-n3_o_b/N3_b)*var3_o_w_b/n3_o_b)
+
+#wzgledny blad szacunku
+blad_warstwowe_o_b = zaokr(sqrt(war_warstwowe_o_b)/sr_warstwowe_o_b*100)
+
+#wzgledny zysk na efektywnosci
+zysk_war_o_proste_b = zaokr((1-war_warstwowe_o_b/war_proste)*100)
+zysk_war_o_war_b = zaokr((1-war_warstwowe_o_b/war_warstwowe_b)*100)
+
+
+
+####Warstwowe - warstwowanie po umowie####
+warstwa1_c = dane[which(dane$forma_zatrudnienia == "umowa o dzieło"),1] 
+warstwa2_c = dane[which(dane$forma_zatrudnienia == "umowa o pracę"),1]
+warstwa3_c = dane[which(dane$forma_zatrudnienia == "umowa zlecenie"),1]
+
+N1_c = length(warstwa1_c)
+N2_c = length(warstwa2_c)
+N3_c = length(warstwa3_c)
+
+W1_c = N1_c/N
+W2_c = N2_c/N
+W3_c = N3_c/N
+
+
+
+#------------------------------Alokacja proporcjonalna-----------------------
+
+
+
+n1_c = round(W1_c*n)
+n2_c = round(W2_c*n)
+n3_c = round(W3_c*n)
+
+set.seed(ziarno)
+wylosowane1_c = floor(runif(n1_c,1,N1_c+1))
+wylosowane2_c = floor(runif(n2_c,1,N2_c+1))
+wylosowane3_c = floor(runif(n3_c,1,N3_c+1))
+
+proba1_c = warstwa1_c[wylosowane1_c]
+proba2_c = warstwa2_c[wylosowane2_c]
+proba3_c = warstwa3_c[wylosowane3_c]
+
+#srednie w warstwach
+sr1_c = zaokr(mean(unlist(proba1_c)))
+sr2_c = zaokr(mean(unlist(proba2_c)))
+sr3_c = zaokr(mean(unlist(proba3_c)))
+
+#wariancje w warstwach
+var1_c = zaokr(var(unlist(proba1_c)))
+var2_c = zaokr(var(unlist(proba2_c)))
+var3_c = zaokr(var(unlist(proba3_c)))
+
+#estymacja sredniej
+sr_warstwowe_c = zaokr(sr1_c*W1_c+sr2_c*W2_c+sr3_c*W3_c)
+
+#estymator wariancji estymatora sredniej
+war_warstwowe_c = zaokr((W1_c^2)*(1-n1_c/N1_c)*var1_c/n1_c +
+  (W2_c^2)*(1-n2_c/N2_c)*var2_c/n2_c +
+  (W3_c^2)*(1-n3_c/N3_c)*var3_c/n3_c)
+
+#wzgledny blad szacunku
+blad_warstwowe_c = zaokr(sqrt(sr_warstwowe_c)/war_warstwowe_c*100)
+
+#wzgledny zysk na efektywnosci
+zysk_war_proste_c = zaokr((1-war_warstwowe_c/war_proste)*100)
+
+
+
+#----------------------------Alokacja optymalna-----------------------------------------
+
+
+
+
+var1_o_c = zaokr(var(warstwa1_c))
+var2_o_c = zaokr(var(warstwa2_c))
+var3_o_c = zaokr(var(warstwa3_c))
+
+suma_c = N1_c*var1_o_c + N2_c*var2_o_c + N3_c*var3_o_c
+
+n1_o_c = round(n*N1_c*var1_o_c/suma_c)
+n2_o_c = floor(n*N2_c*var2_o_c/suma_c)
+n3_o_c = round(n*N3_c*var3_o_c/suma_c)
+
+#losowanie prob
+set.seed(ziarno)
+wylosowane1_o_c = floor(runif(n1_o_c,1,N1_c+1))
+wylosowane2_o_c = floor(runif(n2_o_c,1,N2_c+1))
+wylosowane3_o_c = floor(runif(n3_o_c,1,N3_c+1))
+
+proba1_o_c = warstwa1_c[wylosowane1_o_c]
+proba2_o_c = warstwa2_c[wylosowane2_o_c]
+proba3_o_c = warstwa3_c[wylosowane3_o_c]
+
+#srednie w warstwach
+sr1_o_c = zaokr(mean(unlist(proba1_o_c)))
+sr2_o_c = zaokr(mean(unlist(proba2_o_c)))
+sr3_o_c = zaokr(mean(unlist(proba3_o_c)))
+
+#wariancje w warstwach
+var1_o_w_c = zaokr(var(unlist(proba1_o_c)))
+var2_o_w_c = zaokr(var(unlist(proba2_o_c)))
+var3_o_w_c = zaokr(var(unlist(proba3_o_c)))
+
+#estymacja sredniej
+sr_warstwowe_o_c = zaokr(sr1_o_c*W1_c+sr2_o_c*W2_c+sr3_o_c*W3_c)
+
+#estymator wariancji estymatora sredniej
+war_warstwowe_o_c = zaokr((W1_c^2)*(1-n1_o_c/N1_c)*var1_o_w_c/n1_o_c +
+  (W2_c^2)*(1-n2_o_c/N2_c)*var2_o_w_c/n2_o_c +
+  (W3_c^2)*(1-n3_o_c/N3_c)*var3_o_w_c/n3_o_c)
+
+#wzgledny blad szacunku
+blad_warstwowe_o_c = zaokr(sqrt(war_warstwowe_o_c)/sr_warstwowe_o_c*100)
+
+#wzgledny zysk na efektywnosci
+zysk_war_o_proste_c = zaokr((1-war_warstwowe_o_c/war_proste)*100)
+zysk_war_o_war_c = zaokr((1-war_warstwowe_o_c/war_warstwowe_c)*100)
+
+
+
+
+
+zestawienie_liczebności = data.frame( 
+  "Proste" = c(n, NA, NA, N, NA, NA),
+  "WarstwoweI_lok_prop" = c(n1, n2, n3, N1, N2, N3),
+  "WarstwoweI_lok_opt" = c(n1_o, n2_o, n3_o, N1, N2, N3),
+  "WarstwoweII_lok_prop" = c(n1_b, n2_b, n3_b, N1_b, N2_b, N3_b),
+  "WarstwoweII_lok_opt" = c(n1_o_b, n2_o_b, n3_o_b, N1_b, N2_b, N3_b),
+  "WarstwoweIII_lok_prop" = c(n1_c, n2_c, n3_c, N1_c, N2_c, N3_c),
+  "WarstwoweIII_lok_opt" = c(n1_o_c, n2_o_c, n3_o_c, N1_c, N2_c, N3_c))
+
+zestawienie_liczebności = as.data.frame(t(zestawienie_liczebności))
+colnames(zestawienie_liczebności) = c("gr1_proba","gr2_proba", "gr3_proba", "gr1_pop","gr2_pop", "gr3_pop")
+
+zestawienie_statystyk = data.frame(
+  "Średnia" = c(sr_pop, sr_proste, sr_warstwowe, sr_warstwowe_o, sr_warstwowe_b, sr_warstwowe_o_b, sr_warstwowe_c, sr_warstwowe_o_c),
+  "Wariancja" = c(war_pop, war_proste, war_warstwowe, war_warstwowe_o, war_warstwowe_b, war_warstwowe_o_b, war_warstwowe_c, war_warstwowe_o_c),
+  "Wzgl_błąd_szacunku" = c(NA, blad_proste, blad_warstwowe, blad_warstwowe_o, blad_warstwowe_b, blad_warstwowe_o_b, blad_warstwowe_c, blad_warstwowe_o_c))
+
+rownames(zestawienie_statystyk) = c("Populacja", "Proste", "WarstwoweI_alok_prop", "WarstwoweI_alok_opt", "WarstwoweII_alok_prop", "WarstwoweII_alok_opt", "WarstwoweIII_alok_prop", "WarstwoweIII_alok_opt")
+zestawienie_statystyk = cbind(zestawienie_statystyk, 
+  "Odch_śr_od_śr_pop" = zaokr(zestawienie_statystyk[,1]-zestawienie_statystyk[1,1]))
+
+zestawienie_statystyk_warstwy = data.frame(
+ "I_alok_prop" = c(sr1, sr2, sr3, var1, var2, var3),
+ "I_alok_opt" = c(sr1_o, sr2_o, sr3_o, var1_o, var2_o, var3_o), 
+ "II_alok_prop" = c(sr1_b, sr2_b, sr3_b, var1_b, var2_b, var3_b),
+ "II_alok_opt" = c(sr1_o_b, sr2_o_b, sr3_o_b, var1_o_b, var2_o_b, var3_o_b),
+ "III_alok_prop" = c(sr1_c, sr2_c, sr3_c, var1_c, var2_c, var3_c),
+ "III_alok_opt" = c(sr1_o_c, sr2_o_c, sr3_o_c, var1_o_c, var2_o_c, var3_o_c)
+)
+rownames(zestawienie_statystyk_warstwy) = c("śr_gr_1", "śr_gr_2", "śr_gr_3", "war_gr_1", "war_gr_2", "war_gr_3")
+zestawienie_statystyk_warstwy = as.data.frame(t(zestawienie_statystyk_warstwy))
+
+zestawienie_zysków = data.frame("Zysk_na_efektywności" = c(zysk_war_proste, zysk_war_o_proste,
+  zysk_war_o_war, zysk_war_proste_b, zysk_war_o_proste_b, zysk_war_o_war_b, zysk_war_proste_c, zysk_war_o_proste_c,
+  zysk_war_o_war_c))
+rownames(zestawienie_zysków) = c("Warstwowe_I_alokacja_prop_do_Prostego", "Warstwowe_I_alokacja_opt_do_Prostego", "Warstwowe_I_alokacja_opt_do_Warstwowe_I_alokacja_prop", "Warstwowe_II_alokacja_prop_do_Prostego", 
+"Warstwowe_II_alokacja_opt_do_Prostego", "Warstwowe_II_alokacja_opt_do_Warstwowe_II_alokacja_prop", "Warstwowe_III_alokacja_prop_do_Prostego", 
+"Warstwowe_III_alokacja_opt_do_Prostego", "Warstwowe_III_alokacja_opt_do_Warstwowe_III_alokacja_prop" )
+
+kable(zestawienie_liczebności, format = "simple", caption = "Zestawienie liczebności")
+```
+
+Do pierwszych grup przypisane zostały warianty zmiennych warstwujących o najwyższym średnim dochodzie, każda kolejna grupa gromadziła warianty o co raz mniejszej średniej:
+
+- wyższe > średnie > zawodowe,
+- zaawansowany > doświadczony > początkujący, 
+- umowa o dzieło > umowa o prace > umowa zlecenie.
+
+Jak widać w powyższej tabeli, w populacji w przypadku wykształcenia najwięcej obserwacji pochodziło z grupy "średnie", zaś najmniej z "zawodowe". W próbkach duże znaczenie miało także "średnie" wykształcenie, w przypadku alokacji optymalnej do próby wylosowane zostały tylko dwie obserwacje z grupy "zawodowe".
+
+Populacja podzielona jest podobnie także pod względem doświadczenia, najwięcej przypadków opisane było wartością "doświadczony", pozostałe dwie wartości, czyli początkujący i zaawansowany posiadały liczebności kolejno 2001 oraz 2000. Taki podział wpłynął znacznie na próbkę zarówno w alokacji proporcjonalnej i optymalnej, gdyż grupa osób "doświadczonych" była znacznie bardziej reprezentowana.
+
+Mniejszą dominację liczebności miała wartość "umowa o pracę" zmiennej forma zatrudnienia, gdyż liczebności pozostałych grup wyniosły ok. 4100, co więcej próby w tym losowaniu posiadały lepsze reprezentacje grup.
+
+## 2.2. Oszacowania średniej i inne statystyki
+
+```{r message = FALSE, echo = FALSE}
+kable(zestawienie_statystyk, format = "simple", caption = "Zestawienie statystyk")
+```
+
+Średnia wartość dochodu wyniosła w populacji 3596,90, najbliższe tej wartości były średnie wyliczone w próbach z losowania warstwowego według zmiennych doświadczenie (II) oraz forma zatrudnienia (III), były one mniej obciążone niż średnia wyliczona w próbie z losowania prostego oraz warstwowego według zmiennej wykształcenie (I), jednak to drugie było bardziej efektywne, gdyż charakteryzowało się niższą wariancją. 
+
+Względny błąd szacunku był najwyższy w przypadku losowania prostego i losowań warstwowych z alokacją optymalną (conajmniej 3%) . Najlepiej w tym wypadku wypadło losowanie warstwowe z alokacją proporcjonalną według zmiennej doświadczenie (II), gdyż miało najmniejsze zróżnicowanie dochodu - 0,34%.
+
+## 2.3. Statystyki w warstwach
+
+```{r message = FALSE, echo = FALSE}
+kable(zestawienie_statystyk_warstwy, format = "simple", caption = "Zestawienie statystyk w warstwach")
+```
+
+Powyżej zauważyć można jak kształtowały się średnie oraz wariancje w warstwach w losowaniach warstwowych według wybranych zmiennych. Zgodnie z wykresami pudełkowymi średnie były najwyższe w warstwach "wyższe" dla wykształcenia (I), "zaawansowany" dla doświadczenia (II) oraz "umowa o dzieło" dla formy zatrudnienia (III), a najniższe dla wykształcenia "zawodowego", doświadczenia "początkujący" oraz "umowy zlecenie". Największe średnie dochody wśród grup pierwszych przypadły na zmienną doświadczenie (II), natomiast w drugich i trzecich na formę zatrudnienia (III).
+
+Co więcej wariancja była najwyższa dla formy zatrudnienia (III) w przypadku warstwy pierwszej i trzeciej, zaś jeśli chodzi o warstwę drugą to dla doświadczenia (II).
+
+## 2.4. Porównanie metod losowania - względne zyski na efektywności
+
+```{r message = FALSE, echo = FALSE}
+kable(zestawienie_zysków, format = "simple", caption = "Zestawienie zysków na efektywności")
+```
+
+Do porównania wykorzystanych schematów losowania wykorzystany został względny zysk na efektywności, mówiący o tym o ile procent zmniejszy się wariancja jeżeli wykorzystamy pewien schemat zamiast innego. Okazało się, że najwyższe zyski w stosunku do losowania prostego zależnego osiągnąć można stosując losowania: warstwowe z alokacją optymalną dla zmiennej wykształcenie (I) - 44,96% i zmiennej doświadczenie (II) - 33,79% oraz warstwowe z alokacją proporcjonalną dla zmiennej wykształcenie (I) - 38,18% i zmiennej forma zatrudnienia (III) - 34,68%.
+
+# 3. Wnioski
+
+Podsumowując, średni dochód w populacji oszacowany został w próbach pochodzących z losowania prostego zależnego oraz warstwowego z alokacją proporcjonalną lub optymalną w oparciu o trzy cechy warstwujące: wykształcenie, doświadczenie oraz forma zatrudnienia. 
+
+Z punktu widzenia wad i zalet zastosowanych schematów, losowanie proste było lepsze od warstwowego, gdyż nie wymagało tak skomplikowanych procedur do wylosowania prób oraz obliczenia miar, jednak nie skorzystało ono z dostępnych dodatkowych danych, jak to było w przypadku losowania warstwowego, przez co osiągnęło ono większą efektywność.
+
+Z kolei jeśli chodzi o wyniki, najlepszą strategią był estymator zwykły w połączeniu z losowaniem warstwowym z alokacją proporcjonalną dla zmiennej forma zatrudnienia. Reprezentacja populacji uzyskana dzięki temu losowaniu była najlepsza, co więcej średnia wyznaczona w próbie pochodzącej z tego losowania była najbliższa rzeczywistej, a względny błąd szacunku niski. Dodatkowo ten schemat charakteryzował się o 34,68% wyższą efektywnością w porównaniu do losowania prostego, co jest jednym z wyższych wyników wśród przeprowadzonych losowań.
