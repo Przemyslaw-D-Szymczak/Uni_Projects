@@ -9,6 +9,6 @@ English:
 This macroeconomic price model is based on input-output tables from Eurostat. 
 It was created in MS Excel using mapping and conditional functions. 
 It can be used to find out how price changes in different sectors can affect the whole economy. 
-To achieve this, a few check boxes, drop-down lists, data validation and iteration has been implemented. 
+To achieve this, a few checkboxes, drop-down lists, data validation and iteration have been implemented. 
 The impact of chosen variables may be seen on charts.
 
