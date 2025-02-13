@@ -1,0 +1,9 @@
+Polski:
+Celem tego projektu było sprawdzenie jakości metod imputacji. W związku z tym, wprowadzono braki danych w dwóch próbkach do danych kredytowych,
+które zostały następnie zaimputowane trzema metodami, a ich skuteczność została zweryfikowana przy użyciu modelu logitowego i macierzy pomyłek.
+Dane zostały w całości przetworzone w języku R.
+
+English:
+The aim of the project was to verify the performances of imputation methods. To do so, the credit data has been modified in two samples to include missing values, 
+then empty values have been imputed using three methods, and their effectiveness was verified using a logit model and confusion matrix.
+Data has been entirely processed in R language.
