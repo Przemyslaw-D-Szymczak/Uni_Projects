@@ -1,0 +1,14 @@
+Polish:
+Ten makroekonomiczny model cen opiera się na tabelach przepływów międzygałęziowych z Eurostatu. 
+Powstał w programie MS Excel z wykorzystaniem funkcji mapowania i funkcji warunkowych. 
+Można go wykorzystać do sprawdzenia, jak zmiany cen w różnych sektorach mogą wpłynąć na całą gospodarkę. 
+Aby to osiągnąć, zastosowane zostały pola wyboru, listy rozwijane, walidacja danych i iteracje. 
+Wpływ wybranych zmiennych można zobaczyć na wykresach.
+
+English:
+This macroeconomic price model is based on input-output tables from Eurostat. 
+It was created in MS Excel using mapping and conditional functions. 
+It can be used to find out how price changes in different sectors can affect the whole economy. 
+To achieve this, a few check boxes, drop-down lists, data validation and iteration has been implemented. 
+The impact of chosen variables may be seen on charts.
+
