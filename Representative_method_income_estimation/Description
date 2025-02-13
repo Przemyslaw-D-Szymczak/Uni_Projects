@@ -1,0 +1,7 @@
+Polski:
+Celem projektu jest estymacja średniego dochodu w populacji, wykorzystując metodę reprezentatywną, czyli losowanie, a następenie prównanie wyników dwóch rodzajów losowań.
+Analiza przerowadzona została za pomocją języka R i R Markdown
+
+English:
+The aim of this project is to estimate mean income in population using representative method i.e. sampling, then to compare results of two types of draws.
+It was carried out using R language and R Markdown.
